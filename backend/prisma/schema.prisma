@@ -1,0 +1,422 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./prisma/dev.db"
+}
+
+// Enums
+enum Role {
+  ADMIN
+  USER
+  MODERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  FACEBOOK
+  GITHUB
+}
+
+enum RuleType {
+  FIREWALL
+  QOS
+  PARENTAL_CONTROL
+  ACCESS_CONTROL
+}
+
+enum RuleAction {
+  ALLOW
+  BLOCK
+  LIMIT
+  REDIRECT
+}
+
+enum AlertType {
+  SECURITY
+  PERFORMANCE
+  NETWORK
+  DEVICE
+  SYSTEM
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DeviceType {
+  COMPUTER
+  SMARTPHONE
+  TABLET
+  SMART_TV
+  GAMING_CONSOLE
+  IOT_DEVICE
+  ROUTER
+  UNKNOWN
+}
+
+enum RouterStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+  UNKNOWN
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  username  String?    @unique
+  firstName String?
+  lastName  String?
+  name      String
+  password  String?
+  avatar    String?
+  role      Role       @default(USER)
+  status    UserStatus @default(PENDING_VERIFICATION)
+  isActive  Boolean    @default(true)
+  
+  // Authentication fields
+  isEmailVerified Boolean @default(false)
+  emailVerifiedAt DateTime?
+  emailVerificationToken String?
+  passwordResetToken String?
+  passwordResetExpires DateTime?
+  
+  // OAuth fields
+  googleId  String? @unique
+  
+  // Timestamps
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  authProvider      AuthProvider @default(LOCAL)
+  sessions          Session[]
+  refreshTokens     RefreshToken[]
+  networks          Network[]
+  devices           Device[]
+  rules             Rule[]
+  routers           Router[]
+  alerts            Alert[]
+  networkMonitoring NetworkMonitoring[]
+  deviceMonitoring  DeviceMonitoring[]
+  bandwidthLimits   BandwidthLimit[]
+  timelapses        Timelapse[]
+
+  @@map("users")
+}
+
+// Authentication models
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  isActive  Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("refresh_tokens")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("password_resets")
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  
+  @@map("email_verifications")
+}
+
+model Network {
+  id          String   @id @default(cuid())
+  name        String
+  ssid        String
+  password    String?
+  security    String   @default("WPA2")
+  frequency   String   @default("2.4GHz")
+  channel     Int?
+  isActive    Boolean  @default(true)
+  description String?
+  ipRange     String?
+  gateway     String?
+  dns         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routerId  String?
+  router    Router?  @relation(fields: [routerId], references: [id], onDelete: SetNull)
+  devices   Device[]
+  rules     Rule[]
+  monitoring NetworkMonitoring[]
+  bandwidthLimits   BandwidthLimit[]
+  timelapses        Timelapse[]
+
+  @@map("networks")
+}
+
+model Device {
+  id          String     @id @default(cuid())
+  name        String
+  macAddress  String     @unique
+  ipAddress   String?
+  deviceType  DeviceType @default(UNKNOWN)
+  manufacturer String?
+  model       String?
+  isOnline    Boolean    @default(false)
+  lastSeen    DateTime?
+  isBlocked   Boolean    @default(false)
+  description String?
+  hostname    String?
+  vendor      String?
+  operatingSystem String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  networkId String
+  network   Network @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  routerId  String?
+  router    Router? @relation(fields: [routerId], references: [id])
+  rules     Rule[]
+  monitoring DeviceMonitoring[]
+  bandwidthLimits  BandwidthLimit[]
+
+  @@map("devices")
+}
+
+model Rule {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  ruleType    RuleType
+  action      RuleAction @default(ALLOW)
+  priority    Int        @default(1)
+  isActive    Boolean    @default(true)
+  conditions  String     // JSON string with rule conditions
+  schedule    String?    // JSON string with schedule configuration
+  source      String?
+  destination String?
+  port        Int?
+  protocol    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  networkId String?
+  network   Network? @relation(fields: [networkId], references: [id], onDelete: SetNull)
+  deviceId  String?
+  device    Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@map("rules")
+}
+
+model Router {
+  id           String       @id @default(cuid())
+  name         String
+  model        String?
+  manufacturer String?
+  ipAddress    String
+  macAddress   String?      @unique
+  firmware     String?
+  status       RouterStatus @default(UNKNOWN)
+  lastSeen     DateTime?
+  settings     String?      // JSON string with router configuration
+  adminUrl     String?
+  adminUsername String?
+  adminPassword String?
+  wifiEnabled  Boolean      @default(true)
+  dhcpEnabled  Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  networks Network[]
+  devices  Device[]
+
+  @@map("routers")
+}
+
+model Alert {
+  id        String        @id @default(cuid())
+  title     String
+  message   String
+  alertType AlertType     @default(SYSTEM)
+  severity  AlertSeverity @default(LOW)
+  isRead    Boolean       @default(false)
+  isResolved Boolean      @default(false)
+  metadata  String?       // JSON string with additional alert data
+  sourceIp  String?
+  targetIp  String?
+  affectedDevices String? // JSON string of device IDs
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("alerts")
+}
+
+model NetworkMonitoring {
+  id            String   @id @default(cuid())
+  timestamp     DateTime @default(now())
+  bytesIn       BigInt   @default(0)
+  bytesOut      BigInt   @default(0)
+  packetsIn     Int      @default(0)
+  packetsOut    Int      @default(0)
+  connectedDevices Int   @default(0)
+  signalStrength Int?    // WiFi signal strength
+  bandwidth     Float?   // Current bandwidth usage
+  latency       Float?   // Network latency in ms
+
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  networkId String
+  network   Network @relation(fields: [networkId], references: [id], onDelete: Cascade)
+
+  @@map("network_monitoring")
+}
+
+model DeviceMonitoring {
+  id         String   @id @default(cuid())
+  timestamp  DateTime @default(now())
+  bytesIn    BigInt   @default(0)
+  bytesOut   BigInt   @default(0)
+  packetsIn  Int      @default(0)
+  packetsOut Int      @default(0)
+  cpuUsage   Float?   // CPU usage percentage
+  memoryUsage Float?  // Memory usage percentage
+  temperature Float?  // Device temperature
+  signalStrength Int? // Signal strength for wireless devices
+
+  // Relations
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("device_monitoring")
+}
+
+// Traffic and monitoring models
+model TrafficLog {
+  id          String   @id @default(cuid())
+  sourceIp    String
+  destIp      String
+  sourcePort  Int?
+  destPort    Int?
+  protocol    String
+  bytes       BigInt   @default(0)
+  packets     Int      @default(0)
+  action      String   // ALLOW, BLOCK, etc.
+  
+  timestamp DateTime @default(now())
+  
+  @@map("traffic_logs")
+}
+
+model BandwidthLimit {
+  id            String   @id @default(cuid())
+  name          String
+  uploadLimit   Int?     // KB/s
+  downloadLimit Int?     // KB/s
+  totalLimit    Int?     // MB
+  isActive      Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  networkId String?
+  network   Network? @relation(fields: [networkId], references: [id], onDelete: SetNull)
+  deviceId  String?
+  device    Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  
+  @@map("bandwidth_limits")
+}
+
+model Timelapse {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  interval    Int      @default(60) // seconds
+  isActive    Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  networkId String?
+  network   Network? @relation(fields: [networkId], references: [id], onDelete: SetNull)
+  
+  @@map("timelapses")
+}

@@ -1,0 +1,141 @@
+version: 2
+updates:
+  # Backend Node.js dependencies
+  - package-ecosystem: "npm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "cyberlens-team"
+    assignees:
+      - "cyberlens-team"
+    commit-message:
+      prefix: "chore(backend)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "backend"
+    ignore:
+      # Ignore major version updates for critical packages
+      - dependency-name: "@nestjs/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+    groups:
+      nestjs:
+        patterns:
+          - "@nestjs/*"
+      prisma:
+        patterns:
+          - "@prisma/*"
+          - "prisma"
+      testing:
+        patterns:
+          - "jest*"
+          - "@types/jest"
+          - "ts-jest"
+          - "supertest"
+          - "@types/supertest"
+      eslint:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+
+  # Mobile React Native dependencies
+  - package-ecosystem: "npm"
+    directory: "/mobile"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "cyberlens-team"
+    assignees:
+      - "cyberlens-team"
+    commit-message:
+      prefix: "chore(mobile)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "mobile"
+    ignore:
+      # Ignore major version updates for React Native
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@react-*"
+      expo:
+        patterns:
+          - "expo*"
+          - "@expo/*"
+      navigation:
+        patterns:
+          - "@react-navigation/*"
+
+  # Root project dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "cyberlens-team"
+    assignees:
+      - "cyberlens-team"
+    commit-message:
+      prefix: "chore(root)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "root"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "cyberlens-team"
+    assignees:
+      - "cyberlens-team"
+    commit-message:
+      prefix: "chore(docker)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "cyberlens-team"
+    assignees:
+      - "cyberlens-team"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
